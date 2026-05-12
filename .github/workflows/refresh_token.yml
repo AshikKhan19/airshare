@@ -1,0 +1,44 @@
+name: Refresh Google Token
+on:
+  schedule:
+    - cron: '*/50 * * * *'
+  workflow_dispatch:
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install google-auth-library
+      - name: Inject Token
+        env:
+          GCP_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+        run: |
+          node -e "
+          const {GoogleAuth} = require('google-auth-library');
+          const fs = require('fs');
+          async function run() {
+            const auth = new GoogleAuth({
+              credentials: JSON.parse(process.env.GCP_KEY),
+              scopes: ['https://www.googleapis.com/auth/drive']
+            });
+            const client = await auth.getClient();
+            const tokenResponse = await client.getAccessToken();
+            const token = tokenResponse.token;
+            let content = fs.readFileSync('index.html', 'utf8');
+            content = content.replace(/const ACCESS_TOKEN = \".*\";/, 'const ACCESS_TOKEN = \"' + token + '\";');
+            fs.writeFileSync('index.html', content);
+          }
+          run();
+          "
+      - name: Save Changes
+        run: |
+          git config --global user.name "AirShare Bot"
+          git config --global user.email "actions@github.com"
+          git add index.html
+          git commit -m "Fresh Token [skip ci]" || echo "No changes"
+          git push
