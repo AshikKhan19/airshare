@@ -31,7 +31,7 @@
 
 <script>
 // --- AUTH CONFIGURATION ---
-// BOT_ANCHOR_DO_NOT_DELETE
+// BOT_ANCHOR_START
 const ACCESS_TOKEN = "INITIAL_TOKEN_HERE"; 
 const FOLDER_ID = "1X25xBP2FPyFgVaPXYJ8S07yXgzGffUDO";
 
@@ -71,8 +71,6 @@ async function upload() {
         const uploadUrl = initResponse.headers.get('Location');
         const xhr = new XMLHttpRequest();
         xhr.open('PUT', uploadUrl);
-        
-        // Finalize header for Google Drive
         xhr.setRequestHeader('Content-Range', `bytes 0-${file.size - 1}/${file.size}`);
 
         xhr.upload.onprogress = (e) => {
