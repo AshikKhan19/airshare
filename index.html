@@ -6,56 +6,50 @@
     <title>AirShare | 10GB Cloud Drop</title>
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #38bdf8; }
-        body { font-family: sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
         .box { background: var(--card); padding: 2.5rem; border-radius: 1.5rem; width: 100%; max-width: 400px; text-align: center; border: 1px solid #334155; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3); }
         h2 { color: var(--accent); margin-bottom: 0.5rem; font-size: 1.8rem; }
-        p { color: #94a3b8; font-size: 0.9rem; margin-bottom: 1.5rem; }
+        p { color: #94a3b8; font-size: 0.85rem; margin-bottom: 1.5rem; }
         input[type="file"] { margin: 1.5rem 0; color: #94a3b8; width: 100%; font-size: 0.9rem; }
         #prog-container { width: 100%; background: #334155; height: 12px; border-radius: 6px; display: none; margin: 1.5rem 0; overflow: hidden; }
         #prog-bar { background: var(--accent); width: 0%; height: 100%; transition: width 0.3s ease; }
-        button { background: var(--accent); color: var(--bg); border: none; padding: 1rem; border-radius: 0.75rem; font-weight: bold; width: 100%; cursor: pointer; font-size: 1rem; transition: transform 0.1s; }
-        button:active { transform: scale(0.98); }
+        button { background: var(--accent); color: var(--bg); border: none; padding: 1rem; border-radius: 0.75rem; font-weight: bold; width: 100%; cursor: pointer; font-size: 1rem; }
         button:disabled { background: #475569; cursor: not-allowed; }
-        #status { margin-top: 1.2rem; font-size: 0.85rem; color: var(--accent); font-weight: 500; min-height: 1.2rem; }
+        #status { margin-top: 1.2rem; font-size: 0.85rem; color: var(--accent); font-weight: 500; word-break: break-all; }
     </style>
 </head>
 <body>
 
 <div class="box">
     <h2>AirShare</h2>
-    <p>Direct to Google Drive (Max 10GB)</p>
+    <p>Upload to Google Drive (Max 10GB)</p>
     <input type="file" id="fileInput">
     <button id="uploadBtn" onclick="upload()">Start Upload</button>
     <div id="prog-container"><div id="prog-bar"></div></div>
-    <div id="status">Ready to sync</div>
+    <div id="status">Ready</div>
 </div>
 
 <script>
-/** * CONFIGURATION
- * The GitHub Action Robot will automatically replace "INITIAL_TOKEN_HERE" 
- * with a fresh key every 50 minutes.
- */
+// --- AUTH CONFIGURATION ---
+// BOT_ANCHOR_DO_NOT_DELETE
 const ACCESS_TOKEN = "INITIAL_TOKEN_HERE"; 
 const FOLDER_ID = "1X25xBP2FPyFgVaPXYJ8S07yXgzGffUDO";
 
 async function upload() {
     const fileInput = document.getElementById('fileInput');
     const file = fileInput.files[0];
-    if (!file) return alert("Please select a file first!");
+    if (!file) return alert("Select a file first!");
 
     const btn = document.getElementById('uploadBtn');
     const status = document.getElementById('status');
     const bar = document.getElementById('prog-bar');
     const container = document.getElementById('prog-container');
 
-    // UI Reset
     btn.disabled = true;
     container.style.display = 'block';
-    bar.style.width = '0%';
-    status.innerText = "Initializing session...";
+    status.innerText = "Connecting to Google...";
 
     try {
-        // --- PHASE 1: CREATE RESUMABLE SESSION ---
         const metadata = { 
             name: file.name, 
             parents: [FOLDER_ID],
@@ -72,56 +66,35 @@ async function upload() {
             body: JSON.stringify(metadata)
         });
 
-        if (!initResponse.ok) {
-            const errorData = await initResponse.text();
-            console.error("Auth Error:", errorData);
-            throw new Error("Auth Failed. Run GitHub Action & Refresh.");
-        }
+        if (!initResponse.ok) throw new Error("Auth Failed. Run GitHub Action.");
 
         const uploadUrl = initResponse.headers.get('Location');
-        status.innerText = "Connection secured. Streaming data...";
-
-        // --- PHASE 2: STREAM DATA VIA XHR ---
         const xhr = new XMLHttpRequest();
         xhr.open('PUT', uploadUrl);
         
-        // This header is vital for Google to finalize the file at 100%
-        // It tells Google: "This is the complete range of the file."
+        // Finalize header for Google Drive
         xhr.setRequestHeader('Content-Range', `bytes 0-${file.size - 1}/${file.size}`);
 
         xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) {
                 const percent = Math.round((e.loaded / e.total) * 100);
                 bar.style.width = percent + '%';
-                const uploadedMB = (e.loaded / 1024 / 1024).toFixed(1);
-                const totalMB = (e.total / 1024 / 1024).toFixed(1);
-                status.innerText = `Uploading: ${percent}% (${uploadedMB} / ${totalMB} MB)`;
+                status.innerText = `Uploading: ${percent}% (${(e.loaded/1024/1024).toFixed(1)}MB)`;
             }
         };
 
         xhr.onload = () => {
-            // 200 or 201 means Success
             if (xhr.status === 200 || xhr.status === 201) {
-                status.style.color = "#4ade80"; // Success Green
-                status.innerText = "✅ Done! File saved to AirShare.";
-                fileInput.value = ""; // Clear input
+                status.innerText = "✅ Done! File saved.";
+                fileInput.value = ""; 
             } else {
-                console.error("Upload Error Details:", xhr.status, xhr.responseText);
-                status.style.color = "#f87171"; // Error Red
-                status.innerText = `❌ Error ${xhr.status}: Google rejected save.`;
+                status.innerText = "❌ Google Error: " + xhr.status;
             }
             btn.disabled = false;
         };
 
-        xhr.onerror = () => {
-            status.innerText = "❌ Network interrupted. Try again.";
-            btn.disabled = false;
-        };
-
         xhr.send(file);
-
     } catch (err) {
-        status.style.color = "#f87171";
         status.innerText = "❌ " + err.message;
         btn.disabled = false;
     }
