@@ -3,30 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AirShare | 10GB Drop</title>
+    <title>AirShare | 10GB</title>
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #38bdf8; }
-        body { font-family: sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .box { background: var(--card); padding: 2.5rem; border-radius: 1.5rem; width: 90%; max-width: 450px; text-align: center; border: 1px solid #334155; }
-        h2 { color: var(--accent); margin-bottom: 0.5rem; font-size: 2rem; }
-        input[type="file"] { margin: 1rem 0; color: #94a3b8; width: 100%; cursor: pointer; }
-        #prog-container { width: 100%; background: #334155; height: 12px; border-radius: 10px; display: none; margin: 1.5rem 0; overflow: hidden; }
-        #prog-bar { background: var(--accent); width: 0%; height: 100%; transition: width 0.3s; }
-        button { background: var(--accent); color: var(--bg); border: none; padding: 1.2rem; border-radius: 0.75rem; font-weight: 800; width: 100%; cursor: pointer; }
-        #status { margin-top: 1.5rem; font-size: 0.9rem; color: var(--accent); }
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; }
+        body { font-family: sans-serif; background: var(--bg); color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .box { background: var(--card); padding: 2rem; border-radius: 1rem; width: 90%; max-width: 400px; text-align: center; border: 1px solid #334155; }
+        #prog-container { width: 100%; background: #334155; height: 10px; border-radius: 5px; display: none; margin: 1rem 0; overflow: hidden; }
+        #prog-bar { background: var(--accent); width: 0%; height: 100%; }
+        button { background: var(--accent); color: var(--bg); border: none; padding: 1rem; border-radius: 0.5rem; font-weight: bold; width: 100%; cursor: pointer; }
     </style>
 </head>
 <body>
     <div class="box">
-        <h2>AirShare</h2>
+        <h2 style="color:var(--accent)">AirShare</h2>
         <input type="file" id="fileInput">
         <button id="uploadBtn" onclick="upload()">Start Upload</button>
         <div id="prog-container"><div id="prog-bar"></div></div>
-        <div id="status">Ready</div>
+        <div id="status" style="margin-top:1rem; color:var(--accent)">Ready</div>
     </div>
 
 <script>
-const ACCESS_TOKEN = "ya29.c.c0AZ4bNpYVARwWkdsGKjFXaw0jFXaQdFAfcJxVXvewgNl_KVUfivbAZLzNMq-OVfY82v3bubiO3UE1UkZQT6vkB1DofHwmA72ky9x65fqjIMloTolKMdilXNonp2-isa__oEiyCfZe5ZWtoUuaCFODP5Ga-AtELQ-6eiAVU3Ni-ffa2CQm5u-XTgs-V-wsC_89O6wE5k0nzGGFrciIDUeYSVOJLl0ke_kKK-ipn6nuVBJMEGJytfE_bmMMf5IQzHZvTsbnuuckZSXwIPz490uU6RZUGvTWI7fKYhhmJhixNXq7Ik5waqDIjaN8B6u0Fz5fSAkK8luTg_toBVAg6km1rLhCBEJi_15ycnaqmYc03Xfkn0_4p1_lszAL384K-u62d13q3lvtIulQY2t69QlfYYw0fkV-q-QyVv4JMbf0tOllQ2FFnIb17jXh7mOcq7pjpIvO5ySWkf_lf_g3wOYlcJ7ko9k45Sg0tBh31xlaXsX09nmjb8Xxb4yteIWjoIBsmlMlWW1ItzIMuoqdtb1uUyRX1eRmUqXfggpjnu06SSMRM63gFsneoikttsxVzJ-_u7rUYdnZyZWUb0wXQ1o_ajYVBjRb8if97wMcJvtiplY77_lj02z4Y75gcS5Md5cpX7hhrB6-zxOg4qvq_1l0db2rRcpzeSg3FgqWhMO7ZsY5chzZe6BUYnX3QevBI5S1b3k529x0cQlS_0twXZWWg9cRR1jkz8qtJjl7U4FwZ4zO5pkz9pQkk5xupviq9odj1lVZSgpyWgkoBrpuBW03sf1Qj2UIRF0FZS9hYfyYnuVlfhhy3_lci3x0S_nYYxUOJMJi2UcjVcVYWB33oqSomrMw8_4J6SpFzRV9UYZX_kwUryv0vl_UcuiIg-s_89bwp4pBoibSpxOQWxMRtUrUVp3nzZ09jlmrbZVvbzM2woq9ltUggtOzvr7dqiJ_X5xxu3xe49nJ_dY_rQ_m2sBbtf6oeQjkncd2m7Y4hizmsQBbiQafS1ry_2J"; 
+// DO NOT TOUCH THE LINE BELOW - THE ROBOT USES IT
+const ACCESS_TOKEN = "INITIAL_TOKEN_HERE";
 const FOLDER_ID = "1X25xBP2FPyFgVaPXYJ8S07yXgzGffUDO";
 
 async function upload() {
@@ -36,6 +34,7 @@ async function upload() {
     const status = document.getElementById('status');
     const bar = document.getElementById('prog-bar');
     const container = document.getElementById('prog-container');
+    
     btn.disabled = true;
     container.style.display = 'block';
     status.innerText = "Connecting...";
@@ -53,21 +52,19 @@ async function upload() {
             body: JSON.stringify(metadata)
         });
 
-        if (!response.ok) throw new Error("Token expired.");
+        if (!response.ok) throw new Error();
         const uploadUrl = response.headers.get('Location');
         const xhr = new XMLHttpRequest();
         xhr.open('PUT', uploadUrl);
         xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-                const p = Math.round((e.loaded / e.total) * 100);
-                bar.style.width = p + '%';
-                status.innerText = `Uploading: ${p}%`;
-            }
+            const p = Math.round((e.loaded / e.total) * 100);
+            bar.style.width = p + '%';
+            status.innerText = `Uploading: ${p}%`;
         };
         xhr.onload = () => { status.innerText = "✅ Done!"; btn.disabled = false; };
         xhr.send(file);
-    } catch (err) {
-        status.innerText = "❌ Error: Run Action & Refresh.";
+    } catch (e) {
+        status.innerText = "❌ Error: Token Expired. Run Action.";
         btn.disabled = false;
     }
 }
