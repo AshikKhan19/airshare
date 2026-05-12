@@ -41,17 +41,21 @@ jobs:
               const token = tokenResponse.token;
               
               let content = fs.readFileSync('index.html', 'utf8');
+              const lines = content.split('\n');
               
-              // This regex is 'smart'—it finds the ACCESS_TOKEN line no matter how it is written
-              const newContent = content.replace(/const ACCESS_TOKEN = \".*\";/, 'const ACCESS_TOKEN = \"' + token + '\";');
+              // Find the line index where our tag is
+              const anchorIndex = lines.findIndex(l => l.includes('// --- BOT_START ---'));
               
-              if (content === newContent) {
-                console.error('ERROR: Could not find the ACCESS_TOKEN line in index.html');
+              if (anchorIndex === -1) {
+                console.error('ERROR: Could not find BOT_START in index.html');
                 process.exit(1);
               }
 
-              fs.writeFileSync('index.html', newContent);
-              console.log('Success: Token updated in index.html');
+              // The token is on the VERY NEXT line
+              lines[anchorIndex + 1] = 'const ACCESS_TOKEN = \"' + token + '\";';
+              
+              fs.writeFileSync('index.html', lines.join('\n'));
+              console.log('Token successfully written.');
             } catch (err) {
               console.error('Critical Error:', err.message);
               process.exit(1);
@@ -65,5 +69,5 @@ jobs:
           git config --global user.name "AirShare Bot"
           git config --global user.email "actions@github.com"
           git add index.html
-          git commit -m "Auto-update Token [skip ci]" || echo "No changes"
+          git commit -m "Update Token [skip ci]" || echo "No changes"
           git push
