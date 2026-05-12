@@ -2,9 +2,8 @@ name: Refresh Google Token
 
 on:
   schedule:
-    # This runs automatically every 50 minutes, 24/7
     - cron: '*/50 * * * *'
-  workflow_dispatch: # This allows you to run it manually whenever you want
+  workflow_dispatch:
 
 jobs:
   refresh:
@@ -21,7 +20,7 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Google Auth Library
+      - name: Install Library
         run: npm install google-auth-library
 
       - name: Inject Token
@@ -42,23 +41,33 @@ jobs:
               const token = tokenResponse.token;
               
               let content = fs.readFileSync('index.html', 'utf8');
-              // This line finds const ACCESS_TOKEN = \"...\"; and replaces it cleanly
-              content = content.replace(/const ACCESS_TOKEN = \".*\";/, 'const ACCESS_TOKEN = \"' + token + '\";');
-              fs.writeFileSync('index.html', content);
-              console.log('Token successfully injected into index.html');
-            } catch (error) {
-              console.error('Error injecting token:', error);
+              const lines = content.split('\n');
+              
+              // Search for the anchor comment
+              const anchorIndex = lines.findIndex(l => l.includes('BOT_ANCHOR_DO_NOT_DELETE'));
+              
+              if (anchorIndex === -1) {
+                console.error('CRITICAL: Anchor tag missing in index.html');
+                process.exit(1);
+              }
+
+              // Replace the line immediately after the anchor
+              lines[anchorIndex + 1] = 'const ACCESS_TOKEN = \"' + token + '\";';
+              
+              fs.writeFileSync('index.html', lines.join('\n'));
+              console.log('Success: Token updated.');
+            } catch (err) {
+              console.error('Error:', err.message);
               process.exit(1);
             }
           }
           run();
           "
 
-      - name: Commit and Push Changes
+      - name: Commit and Push
         run: |
           git config --global user.name "AirShare Bot"
           git config --global user.email "actions@github.com"
           git add index.html
-          # Only commit if the file actually changed to avoid errors
-          git commit -m "Auto-update Google Token [skip ci]" || echo "No changes to commit"
+          git commit -m "Auto-update Token [skip ci]" || echo "No changes"
           git push
