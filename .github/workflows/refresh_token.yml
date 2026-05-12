@@ -1,28 +1,22 @@
 name: Refresh Google Token
-
 on:
   schedule:
     - cron: '*/50 * * * *'
   workflow_dispatch:
-
 jobs:
   refresh:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
       - name: Install Library
         run: npm install google-auth-library
-
       - name: Inject Token
         env:
           GCP_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
@@ -39,35 +33,26 @@ jobs:
               const client = await auth.getClient();
               const tokenResponse = await client.getAccessToken();
               const token = tokenResponse.token;
-              
               let content = fs.readFileSync('index.html', 'utf8');
-              const lines = content.split('\n');
               
-              // Find the line index where our tag is
-              const anchorIndex = lines.findIndex(l => l.includes('// --- BOT_START ---'));
+              // This regex finds the space between the tags and injects the new token line
+              const regex = /\/\/ TOKEN_START[\s\S]*?\/\/ TOKEN_END/;
+              const replacement = '// TOKEN_START\nconst ACCESS_TOKEN = \"' + token + '\"; \n// TOKEN_END';
               
-              if (anchorIndex === -1) {
-                console.error('ERROR: Could not find BOT_START in index.html');
-                process.exit(1);
-              }
-
-              // The token is on the VERY NEXT line
-              lines[anchorIndex + 1] = 'const ACCESS_TOKEN = \"' + token + '\";';
-              
-              fs.writeFileSync('index.html', lines.join('\n'));
-              console.log('Token successfully written.');
+              const newContent = content.replace(regex, replacement);
+              fs.writeFileSync('index.html', newContent);
+              console.log('Success: Token Injected');
             } catch (err) {
-              console.error('Critical Error:', err.message);
+              console.error(err);
               process.exit(1);
             }
           }
           run();
           "
-
       - name: Commit and Push
         run: |
           git config --global user.name "AirShare Bot"
           git config --global user.email "actions@github.com"
           git add index.html
-          git commit -m "Update Token [skip ci]" || echo "No changes"
+          git commit -m "Auto-update Token [skip ci]" || echo "No changes"
           git push
