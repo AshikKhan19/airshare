@@ -43,21 +43,21 @@ jobs:
               let content = fs.readFileSync('index.html', 'utf8');
               const lines = content.split('\n');
               
-              // Search for the anchor comment
-              const anchorIndex = lines.findIndex(l => l.includes('BOT_ANCHOR_DO_NOT_DELETE'));
+              // Find the anchor line
+              const anchorIndex = lines.findIndex(l => l.includes('BOT_ANCHOR_START'));
               
               if (anchorIndex === -1) {
-                console.error('CRITICAL: Anchor tag missing in index.html');
+                console.error('ERROR: Could not find BOT_ANCHOR_START in index.html');
                 process.exit(1);
               }
 
-              // Replace the line immediately after the anchor
+              // Update the line immediately after the anchor
               lines[anchorIndex + 1] = 'const ACCESS_TOKEN = \"' + token + '\";';
               
               fs.writeFileSync('index.html', lines.join('\n'));
-              console.log('Success: Token updated.');
+              console.log('Token successfully injected.');
             } catch (err) {
-              console.error('Error:', err.message);
+              console.error('Critical Error:', err.message);
               process.exit(1);
             }
           }
