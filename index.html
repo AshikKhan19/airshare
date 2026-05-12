@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AirShare | 10GB Drop</title>
+    <style>
+        :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #38bdf8; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .box { background: var(--card); padding: 2.5rem; border-radius: 1.5rem; width: 90%; max-width: 450px; text-align: center; border: 1px solid #334155; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        h2 { color: var(--accent); margin-bottom: 0.5rem; font-size: 2rem; }
+        p { color: #94a3b8; margin-bottom: 2rem; font-size: 0.9rem; }
+        input[type="file"] { margin: 1rem 0; color: #94a3b8; width: 100%; cursor: pointer; }
+        #prog-container { width: 100%; background: #334155; height: 12px; border-radius: 10px; display: none; margin: 1.5rem 0; overflow: hidden; }
+        #prog-bar { background: linear-gradient(90deg, #38bdf8, #818cf8); width: 0%; height: 100%; transition: width 0.3s; }
+        button { background: var(--accent); color: var(--bg); border: none; padding: 1.2rem; border-radius: 0.75rem; font-weight: 800; width: 100%; cursor: pointer; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        #status { margin-top: 1.5rem; font-size: 0.9rem; color: var(--accent); font-weight: 500; }
+    </style>
+</head>
+<body>
+<div class="box">
+    <h2>AirShare</h2>
+    <p>Upload files directly to my 1TB Drive.<br>No account required.</p>
+    <input type="file" id="fileInput">
+    <button id="uploadBtn" onclick="upload()">Start Upload</button>
+    <div id="prog-container"><div id="prog-bar"></div></div>
+    <div id="status">Ready</div>
+</div>
+<script>
+// THE TOKEN GOES HERE
+const ACCESS_TOKEN = "INITIAL_TOKEN_HERE"; 
+const FOLDER_ID = "1X25xBP2FPyFgVaPXYJ8S07yXgzGffUDO";
+
+async function upload() {
+    const file = document.getElementById('fileInput').files[0];
+    if (!file) return alert("Select a file.");
+    const btn = document.getElementById('uploadBtn');
+    const status = document.getElementById('status');
+    const bar = document.getElementById('prog-bar');
+    const container = document.getElementById('prog-container');
+    btn.disabled = true;
+    container.style.display = 'block';
+    status.innerText = "Connecting to Google Cloud...";
+    try {
+        const metadata = { name: file.name, parents: [FOLDER_ID] };
+        const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${ACCESS_TOKEN}`,
+                'Content-Type': 'application/json',
+                'X-Upload-Content-Type': file.type,
+                'X-Upload-Content-Length': file.size
+            },
+            body: JSON.stringify(metadata)
+        });
+        if (!response.ok) throw new Error("Token expired. Run GitHub Action.");
+        const uploadUrl = response.headers.get('Location');
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', uploadUrl);
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+                const p = Math.round((e.loaded / e.total) * 100);
+                bar.style.width = p + '%';
+                status.innerText = `Uploading: ${p}% (${(e.loaded/1024/1024).toFixed(1)}MB)`;
+            }
+        };
+        xhr.onload = () => {
+            status.innerText = xhr.status < 300 ? "✅ Upload Complete!" : "❌ Error.";
+            btn.disabled = false;
+        };
+        xhr.send(file);
+    } catch (err) {
+        status.innerText = "❌ Error: Please refresh token.";
+        btn.disabled = false;
+    }
+}
+</script>
+</body>
+</html>
