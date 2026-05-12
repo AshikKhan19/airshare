@@ -3,68 +3,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AirShare | 10GB</title>
+    <title>AirShare | 1TB Cloud Drop</title>
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; }
-        body { font-family: sans-serif; background: var(--bg); color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .box { background: var(--card); padding: 2rem; border-radius: 1rem; width: 90%; max-width: 400px; text-align: center; border: 1px solid #334155; }
+        :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #38bdf8; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .box { background: var(--card); padding: 2rem; border-radius: 1rem; width: 100%; max-width: 400px; text-align: center; border: 1px solid #334155; }
+        h2 { color: var(--accent); margin-bottom: 1rem; }
+        input[type="file"] { margin: 1.5rem 0; color: #94a3b8; width: 100%; }
         #prog-container { width: 100%; background: #334155; height: 10px; border-radius: 5px; display: none; margin: 1rem 0; overflow: hidden; }
-        #prog-bar { background: var(--accent); width: 0%; height: 100%; }
+        #prog-bar { background: var(--accent); width: 0%; height: 100%; transition: width 0.2s; }
         button { background: var(--accent); color: var(--bg); border: none; padding: 1rem; border-radius: 0.5rem; font-weight: bold; width: 100%; cursor: pointer; }
+        #status { margin-top: 1rem; font-size: 0.8rem; color: var(--accent); }
     </style>
 </head>
 <body>
-    <div class="box">
-        <h2 style="color:var(--accent)">AirShare</h2>
-        <input type="file" id="fileInput">
-        <button id="uploadBtn" onclick="upload()">Start Upload</button>
-        <div id="prog-container"><div id="prog-bar"></div></div>
-        <div id="status" style="margin-top:1rem; color:var(--accent)">Ready</div>
-    </div>
+
+<div class="box">
+    <h2>AirShare</h2>
+    <input type="file" id="fileInput">
+    <button id="uploadBtn" onclick="upload()">Start Upload</button>
+    <div id="prog-container"><div id="prog-bar"></div></div>
+    <div id="status">Ready</div>
+</div>
 
 <script>
-// DO NOT TOUCH THE LINE BELOW - THE ROBOT USES IT
-const ACCESS_TOKEN = "ya29.c.c0AZ4bNpbUoajMTmTmMqActFuZgOsuvMhyk_a6ESDucscl854OA3fK2w4oZy4ghh4iQlXQ6ILb2TY4ATnlAJMWJXzE0hpkpeoylNYgxvt50JEDiGWuEHCTbUcg4pxpxXjfTu0zDDy6yHdJI46sN3a8H1CWt5gz2Hi_I0rVUAhAc9w0Z8Ad3nBw9ChymATlfdd8HFwheXJOu49PAWZp08lB5G81QU3fHfRMYBfp5DbJFvPS_Ku_gVH0yUVw84XWkQIlU7ogbFmubi1VyWdqpWkuMn8tvTmCIIcFVPvS_QwEJo2NaGGw3AXpIe25zotqvsrt8I0LV3G7XnOzYYN-KknDdlgyOZymzfS68DreZxDnrJGNh1Zny2vq25QT384CUsIvvoR-gx10ra2dVfcxFlO1eklUUFRQqou9j6BWmBatR42g7tj-U_63Olj-d29qZI5jcqiS9X6ki9sb3mO6F5sUy6piubuJ1uoWJrZo2pjpc5Rrl6qrBjxsikhQdZbsfBSbVRg0IjOWw0u6zxX3B9U89Qv-W0786k4otu-shofqpa6mqzSQ-gydUs09BcsnaOyir7Q8gXr-ipZJIIzsoysIUkVSSeQzjSmVqI3F6BYMg3-mnlkS5OvwtZi7vJ4zcQZuFtZ1nmpQb8_SnF0j_1-zdn7BQx0FkFryeXBuX7dO2Yvt1J_r7nY3mW-jwMXf2vYtmweeqgdZQi0ytn3oO707urI1wR-FFyd_eidFdmna2sS7b0hrd1S69jSjZpRBtYmt1Zx__Jwagi7hMu_IYSBJJnM_vZYwZkUR3e3M1Ze1go0z1mgIWraRQ1_Z6zoaM14yIufBn1u3dRt-o14-jB8IyB0wua_Wcr8kpxyxfIvY6XxBht6or6Qv6RgclaIZzVRRnBZU_iW9coVkmz1pgz1qORaiI6Rbc4dOMd-W9qung8Oe386oZr5o5a0Ybwy-5F68fRY407d0Qy5JjBUxRfw5vaJ1Ixlj773ik636b561lQWY6g5qyUJrWb-";
+// --- CONFIGURATION (Robot updates the Token line) ---
+const ACCESS_TOKEN = "INITIAL_TOKEN_HERE"; 
 const FOLDER_ID = "1X25xBP2FPyFgVaPXYJ8S07yXgzGffUDO";
 
 async function upload() {
     const file = document.getElementById('fileInput').files[0];
-    if (!file) return alert("Select a file.");
+    if (!file) return alert("Select a file first");
+
     const btn = document.getElementById('uploadBtn');
     const status = document.getElementById('status');
     const bar = document.getElementById('prog-bar');
     const container = document.getElementById('prog-container');
-    
+
     btn.disabled = true;
     container.style.display = 'block';
-    status.innerText = "Connecting...";
+    status.innerText = "Requesting Upload URL...";
 
     try {
+        // STEP 1: Start Resumable Session (This works for 10GB+)
         const metadata = { name: file.name, parents: [FOLDER_ID] };
-        const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
+        
+        const initResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${ACCESS_TOKEN}`,
+                'Authorization': 'Bearer ' + ACCESS_TOKEN,
                 'Content-Type': 'application/json',
-                'X-Upload-Content-Type': file.type,
-                'X-Upload-Content-Length': file.size
+                'X-Upload-Content-Type': file.type
             },
             body: JSON.stringify(metadata)
         });
 
-        if (!response.ok) throw new Error();
-        const uploadUrl = response.headers.get('Location');
+        if (!initResponse.ok) throw new Error("Auth Failed. Run GitHub Action.");
+
+        // Google gives us a unique, private URL for this specific file
+        const uploadUrl = initResponse.headers.get('Location');
+
+        // STEP 2: Stream the Data
         const xhr = new XMLHttpRequest();
         xhr.open('PUT', uploadUrl);
+        
         xhr.upload.onprogress = (e) => {
-            const p = Math.round((e.loaded / e.total) * 100);
-            bar.style.width = p + '%';
-            status.innerText = `Uploading: ${p}%`;
+            if (e.lengthComputable) {
+                const p = Math.round((e.loaded / e.total) * 100);
+                bar.style.width = p + '%';
+                status.innerText = `Uploading: ${p}% (${(e.loaded/1024/1024).toFixed(1)}MB)`;
+            }
         };
-        xhr.onload = () => { status.innerText = "✅ Done!"; btn.disabled = false; };
+
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                status.innerText = "✅ Upload Complete!";
+            } else {
+                status.innerText = "❌ Error: Google rejected the stream.";
+            }
+            btn.disabled = false;
+        };
+
+        xhr.onerror = () => {
+            status.innerText = "❌ Network Error.";
+            btn.disabled = false;
+        };
+
         xhr.send(file);
-    } catch (e) {
-        status.innerText = "❌ Error: Token Expired. Run Action.";
+
+    } catch (err) {
+        status.innerText = "❌ " + err.message;
         btn.disabled = false;
     }
 }
