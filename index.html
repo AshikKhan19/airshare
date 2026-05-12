@@ -19,7 +19,6 @@
     </style>
 </head>
 <body>
-
 <div class="box">
     <h2>AirShare</h2>
     <p>Upload to Google Drive (Max 10GB)</p>
@@ -28,51 +27,38 @@
     <div id="prog-container"><div id="prog-bar"></div></div>
     <div id="status">Ready</div>
 </div>
-
 <script>
-// --- BOT_START ---
+// TOKEN_START
 const ACCESS_TOKEN = "INITIAL_TOKEN_HERE"; 
-// --- BOT_END ---
+// TOKEN_END
 const FOLDER_ID = "1X25xBP2FPyFgVaPXYJ8S07yXgzGffUDO";
 
 async function upload() {
     const fileInput = document.getElementById('fileInput');
     const file = fileInput.files[0];
     if (!file) return alert("Select a file first!");
-
     const btn = document.getElementById('uploadBtn');
     const status = document.getElementById('status');
     const bar = document.getElementById('prog-bar');
     const container = document.getElementById('prog-container');
-
     btn.disabled = true;
     container.style.display = 'block';
     status.innerText = "Connecting to Google...";
-
     try {
-        const metadata = { 
-            name: file.name, 
-            parents: [FOLDER_ID],
-            mimeType: file.type || 'application/octet-stream'
-        };
-
+        const metadata = { name: file.name, parents: [FOLDER_ID] };
         const initResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${ACCESS_TOKEN}`,
-                'Content-Type': 'application/json; charset=UTF-8',
-                'X-Upload-Content-Type': file.type || 'application/octet-stream'
+                'Content-Type': 'application/json; charset=UTF-8'
             },
             body: JSON.stringify(metadata)
         });
-
         if (!initResponse.ok) throw new Error("Auth Failed. Run GitHub Action.");
-
         const uploadUrl = initResponse.headers.get('Location');
         const xhr = new XMLHttpRequest();
         xhr.open('PUT', uploadUrl);
         xhr.setRequestHeader('Content-Range', `bytes 0-${file.size - 1}/${file.size}`);
-
         xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) {
                 const percent = Math.round((e.loaded / e.total) * 100);
@@ -80,17 +66,13 @@ async function upload() {
                 status.innerText = `Uploading: ${percent}% (${(e.loaded/1024/1024).toFixed(1)}MB)`;
             }
         };
-
         xhr.onload = () => {
             if (xhr.status === 200 || xhr.status === 201) {
                 status.innerText = "✅ Done! File saved.";
                 fileInput.value = ""; 
-            } else {
-                status.innerText = "❌ Google Error: " + xhr.status;
-            }
+            } else { status.innerText = "❌ Google Error: " + xhr.status; }
             btn.disabled = false;
         };
-
         xhr.send(file);
     } catch (err) {
         status.innerText = "❌ " + err.message;
