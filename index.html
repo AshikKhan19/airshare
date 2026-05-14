@@ -19,6 +19,7 @@
     </style>
 </head>
 <body>
+
 <div class="box">
     <h2>AirShare</h2>
     <p>Upload to Google Drive (Max 10GB)</p>
@@ -27,25 +28,34 @@
     <div id="prog-container"><div id="prog-bar"></div></div>
     <div id="status">Ready</div>
 </div>
+
 <script>
-// TOKEN_START
-const ACCESS_TOKEN = "ya29.c.c0AZ4bNpZbjZnHLk6T0G_LAjoObmYR6fz2Er4J6N-UE0TQNglhbEeybBmuFKMKsiwWmSU7qe0DuMeNkfuown-aYJ-C0jUBWhpyEEnqg9LXNJnawxyuplyQy0LqM9D6aPxgAzIcYvqLmUjk3wRcMslvT0vkwhqYWNqsrJpDgy2TNqatvcf0slu9nd5sOnUWcay4cVT5r4i15ZQSGapPFtrMgk3gDds53GkBpWVMTpJJRjIMdGdvOYHbmpo0awxZZCsRBgcKpif_bVHFvN0dS8GeslchgzyAiXgBgwoS0YNkzPfheaPT7aAa1wcreKPtvNWiAfNgeuYkqdZR4JCQiUOyXojhazQIHpYtXYPdclMloYfv_7Ug1ph-GjIE384DxnQ1WJ0s942dS7ZB_sZ7xVZldRId13JXydch0pj0h2huShQgrrbOvonfmeIMu1lZblhx9ydFoVbmipJalkmOYligfbj1Mdz0OmtYraum36Wc-k-rJyWt3qRo6lk4SMWmjiktZXYSkXhckfQbkussvR_abWtcln95aQtBMqnWWwjqhxrzJBUuf91q-Um2vlbBi6qc87s_ox2BpRylfh6xw-kI0MWtQh0due07ie4uZfqXZUQ_h7sfFSztVmVinvOMOV44ObJebicr4SSQ8ntk3Qqy57Ur2_5ni3ukuxUMuUuXb6qoSub9_Rheosjdr9J_YbR0SlbfBOw2yrdJZOWQ-JWszr7590raskVinxYMMpSOql6gzgSS29U0YlVYo-pxddfdU4qUQxIje1cyY6SSl1zrXSy01qbU0nza7_osZWpsx94krfx5QWu2cmsopVkVgr7VcZ82hwFOS1vUqaxiRf1657XdQskc5JR2Rc_83lcldf5zVuf-B762oyjUXQ0u3SznQJemb3BIzrnXr9eJm-pXrqQpdti9Ig4eZ7_b8F6OUWIXUnMZdaFsyZypI-bgesd1ugy09bS1egXlJVM_-iu7san4_n7qjq0sj5Z66Wzi7nf3ojc3Fp26zmJ"; 
-// TOKEN_END
+// --- BOT_ZONE_START ---
+const ACCESS_TOKEN = "INITIAL_TOKEN_HERE"; 
+// --- BOT_ZONE_END ---
 const FOLDER_ID = "1X25xBP2FPyFgVaPXYJ8S07yXgzGffUDO";
 
 async function upload() {
     const fileInput = document.getElementById('fileInput');
     const file = fileInput.files[0];
     if (!file) return alert("Select a file first!");
+
     const btn = document.getElementById('uploadBtn');
     const status = document.getElementById('status');
     const bar = document.getElementById('prog-bar');
     const container = document.getElementById('prog-container');
+
     btn.disabled = true;
     container.style.display = 'block';
     status.innerText = "Connecting to Google...";
+
     try {
-        const metadata = { name: file.name, parents: [FOLDER_ID] };
+        const metadata = { 
+            name: file.name, 
+            parents: [FOLDER_ID]
+        };
+
+        // Resumable upload handshake
         const initResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
             method: 'POST',
             headers: {
@@ -54,11 +64,16 @@ async function upload() {
             },
             body: JSON.stringify(metadata)
         });
+
         if (!initResponse.ok) throw new Error("Auth Failed. Run GitHub Action.");
+
         const uploadUrl = initResponse.headers.get('Location');
         const xhr = new XMLHttpRequest();
         xhr.open('PUT', uploadUrl);
+        
+        // Critical for large files: defines the byte stream range
         xhr.setRequestHeader('Content-Range', `bytes 0-${file.size - 1}/${file.size}`);
+
         xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) {
                 const percent = Math.round((e.loaded / e.total) * 100);
@@ -66,13 +81,17 @@ async function upload() {
                 status.innerText = `Uploading: ${percent}% (${(e.loaded/1024/1024).toFixed(1)}MB)`;
             }
         };
+
         xhr.onload = () => {
             if (xhr.status === 200 || xhr.status === 201) {
                 status.innerText = "✅ Done! File saved.";
                 fileInput.value = ""; 
-            } else { status.innerText = "❌ Google Error: " + xhr.status; }
+            } else {
+                status.innerText = `❌ Error ${xhr.status}: Google rejected the request.`;
+            }
             btn.disabled = false;
         };
+
         xhr.send(file);
     } catch (err) {
         status.innerText = "❌ " + err.message;
