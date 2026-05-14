@@ -34,7 +34,7 @@ jobs:
             try {
               const auth = new GoogleAuth({
                 credentials: JSON.parse(process.env.GCP_KEY),
-                // FIX: Using full drive scope to prevent 403 Access Denied
+                // FIX: Full drive scope prevents 403 Access Denied
                 scopes: ['https://www.googleapis.com/auth/drive']
               });
               const client = await auth.getClient();
@@ -43,14 +43,14 @@ jobs:
               
               let content = fs.readFileSync('index.html', 'utf8');
               
-              // This regex targets the space between the BOT_ZONE tags
+              // Regex finds everything between the BOT_ZONE tags and overwrites it
               const regex = /\/\/ --- BOT_ZONE_START ---[\s\S]*?\/\/ --- BOT_ZONE_END ---/;
               const replacement = '// --- BOT_ZONE_START ---\nconst ACCESS_TOKEN = \"' + token + '\"; \n// --- BOT_ZONE_END ---';
               
               const newContent = content.replace(regex, replacement);
               
               if (content === newContent) {
-                console.error('ERROR: Could not find the BOT_ZONE tags in index.html');
+                console.error('ERROR: Could not find BOT_ZONE tags in index.html');
                 process.exit(1);
               }
 
@@ -69,5 +69,5 @@ jobs:
           git config --global user.name "AirShare Bot"
           git config --global user.email "actions@github.com"
           git add index.html
-          git commit -m "Update Token [skip ci]" || echo "No changes"
+          git commit -m "Auto-update Token [skip ci]" || echo "No changes"
           git push
