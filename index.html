@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AirShare | Cloud Drop</title>
     <style>
-        /* Preserving YOUR original design styles exactly */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -44,7 +43,6 @@
             border-color: #38bdf8;
             background: rgba(56,189,248,0.05);
         }
-        /* Update for accessibility: multiple selection active but input is hidden */
         .drop-zone input[type="file"] {
             position: absolute;
             inset: 0;
@@ -131,9 +129,8 @@
 </div>
 
 <script>
-    /* JavaScript logic updated to support multifile upload sequentially and patch the 200/201 error */
     const WORKER_URL = 'https://gcp-auth-bridge.mail-ashikulislam.workers.dev/';
-    const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+    const CHUNK_SIZE = 5 * 1024 * 1024; 
     const MAX_RETRIES = 5;
 
     const dropZone = document.getElementById('dropZone');
@@ -144,30 +141,24 @@
         dropZone.classList.remove('dragover');
         const files = e.dataTransfer.files;
         if (files.length > 0) {
-            document.getElementById('fileInput').files = files; // Set input.files for sequential processing
-            onFileSelected(null); // Direct call for dropped files
+            document.getElementById('fileInput').files = files;
+            onFileSelected(null, files[0]); 
         }
     });
 
-    function onFileSelected(input) {
-        // Correctly handle both input and dropped files
+    function onFileSelected(input, droppedFile) {
         const files = input ? input.files : document.getElementById('fileInput').files;
         if (files.length === 0) return;
         
         const count = files.length;
-        // Design preservation: update file-name text area with details
-        if (count === 1) {
-            document.getElementById('file-name').innerText = `${files[0].name} (${formatBytes(files[0].size)})`;
-        } else {
-            document.getElementById('file-name').innerText = `${count} files selected`;
-        }
+        document.getElementById('file-name').innerText = count === 1 
+            ? `${files[0].name} (${formatBytes(files[0].size)})`
+            : `${count} files selected`;
             
         const btn = document.getElementById('uploadBtn');
         btn.disabled = false;
-        // Button update reflects single or multi
-        btn.innerText = count === 1 ? 'Upload to Drive ☁️' : `Upload ${count} Files ☁️`;
+        btn.innerText = count === 1 ? 'Upload to Drive ☁️' : 'Upload All to Drive ☁️';
         setStatus('', '');
-        document.getElementById('speed-info').innerText = '';
     }
 
     function setStatus(msg, type) {
@@ -187,61 +178,31 @@
         return (bps / 1024).toFixed(0) + ' KB/s';
     }
 
-    // FUNCTION PATCH: Internal retry logic improved, explicitly handles Google's final 200/201 without breaking
     async function uploadChunk(uploadUrl, chunk, start, totalSize, retries = 0) {
         const end = start + chunk.size - 1;
-        try {
-            const res = await fetch(uploadUrl, {
-                method: 'PUT',
-                headers: {
-                    'Content-Range': `bytes ${start}-${end}/${totalSize}`,
-                    'Content-Type': 'application/octet-stream',
-                },
-                body: chunk
-            });
-
-            // 308 = continue. 200/201 = completed
-            if (res.status === 308 || res.status === 200 || res.status === 201) {
-                return res; 
-            }
-
-            // Retry internal logic for server errors
-            if (res.status >= 500 && retries < MAX_RETRIES) {
-                throw new Error("Retryable server error");
-            }
-            throw new Error(`Upload failed with status ${res.status}`);
-        } catch (err) {
-            if (retries < MAX_RETRIES) {
-                const delay = Math.pow(2, retries) * 1000;
-                await new Promise(r => setTimeout(r, delay));
-                return uploadChunk(uploadUrl, chunk, start, totalSize, retries + 1);
-            }
-            throw err; // Propagate fatal errors
-        }
-    }
-
-    async function resumeUpload(uploadUrl, totalSize) {
-        // Ask Google where to resume from
         const res = await fetch(uploadUrl, {
             method: 'PUT',
-            headers: { 'Content-Range': `bytes */${totalSize}` }
+            headers: {
+                'Content-Range': `bytes ${start}-${end}/${totalSize}`,
+                'Content-Type': 'application/octet-stream',
+            },
+            body: chunk
         });
-        if (res.status === 308) {
-            const range = res.headers.get('Range');
-            return range ? parseInt(range.split('-')[1]) + 1 : 0;
+
+        if (res.status === 308 || res.status === 200 || res.status === 201) return res;
+
+        if (res.status >= 500 && retries < MAX_RETRIES) {
+            const delay = Math.pow(2, retries) * 1000;
+            await new Promise(r => setTimeout(r, delay));
+            return uploadChunk(uploadUrl, chunk, start, totalSize, retries + 1);
         }
-        if (res.status === 200 || res.status === 201) return totalSize; // already done
-        throw new Error('Could not resume upload');
+        throw new Error(`Chunk upload failed with status ${res.status}`);
     }
 
-    // FUNCTION FIX (Issue 2): Processes multiple files sequentially inside the standard upload flow
     async function upload() {
         const fileInput = document.getElementById('fileInput');
-        const filesList = fileInput.files;
-        if (!filesList || filesList.length === 0) return;
-
-        // Convert FileList to Array to iterate easily
-        const files = Array.from(filesList);
+        const files = Array.from(fileInput.files);
+        if (files.length === 0) return;
 
         const btn = document.getElementById('uploadBtn');
         const bar = document.getElementById('prog-bar');
@@ -249,20 +210,16 @@
         const speedInfo = document.getElementById('speed-info');
 
         btn.disabled = true;
-        btn.innerText = 'Initializing...';
         container.style.display = 'block';
 
-        // Outer loop for multiple files
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
-            const filePrefix = files.length > 1 ? `[${i+1}/${files.length}] ` : '';
+            const prefix = files.length > 1 ? `[${i+1}/${files.length}] ` : '';
             
-            bar.style.width = '0%';
-            speedInfo.innerText = '';
-            setStatus(`${filePrefix}Requesting handshake for "${file.name}"...`, 'loading');
+            bar.style.width = '0%'; // Reset for each file
+            setStatus(`${prefix}Getting upload URL...`, 'loading');
 
             try {
-                // Step 1: Handshake remains same
                 const workerRes = await fetch(WORKER_URL, {
                     method: 'POST',
                     headers: {
@@ -272,14 +229,9 @@
                     }
                 });
 
-                if (!workerRes.ok) {
-                    const err = await workerRes.json();
-                    throw new Error('Worker error: ' + (err.error || workerRes.status));
-                }
-
+                if (!workerRes.ok) throw new Error('Worker error');
                 const { uploadUrl } = await workerRes.json();
 
-                // Step 2: Upload direct in chunks
                 let offset = 0;
                 let lastSpeedUpdate = Date.now();
                 let bytesAtLastCheck = 0;
@@ -289,8 +241,6 @@
                     const res = await uploadChunk(uploadUrl, chunk, offset, file.size);
                     
                     offset += chunk.size;
-
-                    // Update UI progress for current file
                     const pct = Math.round((offset / file.size) * 100);
                     bar.style.width = pct + '%';
 
@@ -298,32 +248,25 @@
                     if (now - lastSpeedUpdate > 1000) {
                         const elapsed = (now - lastSpeedUpdate) / 1000;
                         const speed = (offset - bytesAtLastCheck) / elapsed;
-                        // Design preservation: speed output matched to UI
-                        speedInfo.innerText = `${formatSpeed(speed)} — Processing: ${filePrefix}${file.name}`;
+                        speedInfo.innerText = `${formatSpeed(speed)} — ${prefix}${file.name}`;
                         bytesAtLastCheck = offset;
                         lastSpeedUpdate = now;
                     }
-
-                    setStatus(`${filePrefix}Uploading: ${pct}% (${formatBytes(offset)} / ${formatBytes(file.size)})`, 'loading');
-
-                    // FUNCTION FIX (Issue 1): Break the while loop if res.status is 200/201, signaling Google has finalized the file
-                    if (res.status === 200 || res.status === 201) break;
+                    setStatus(`${prefix}Uploading: ${pct}%`, 'loading');
+                    
+                    if (res.status === 200 || res.status === 201) break; // FIX: Exit loop when Google says done
                 }
             } catch (err) {
-                setStatus(`❌ Failure on "${file.name}": ${err.message}`, 'error');
+                setStatus(`❌ Error on ${file.name}: ${err.message}`, 'error');
                 btn.disabled = false;
-                btn.innerText = 'Retry Uploads';
-                return; // Stop processing subsequent files on failure
+                return;
             }
         }
 
-        // All file loops successfully completed
         bar.style.width = '100%';
         speedInfo.innerText = '';
-        const successPrefix = files.length > 1 ? `✅ All ${files.length} files` : `✅ "${files[0].name}"`;
-        setStatus(`${successPrefix} uploaded successfully to Drive!`, 'success');
+        setStatus(`✅ All files uploaded successfully!`, 'success');
         fileInput.value = '';
-        document.getElementById('file-name').innerText = '';
         btn.innerText = 'Upload More ☁️';
         btn.disabled = false;
     }
