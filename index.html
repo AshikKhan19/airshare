@@ -1,100 +1,57 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AirShare | 10GB Cloud Drop</title>
-    <style>
-        :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #38bdf8; }
-        body { font-family: sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
-        .box { background: var(--card); padding: 2.5rem; border-radius: 1.5rem; width: 100%; max-width: 400px; text-align: center; border: 1px solid #334155; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3); }
-        h2 { color: var(--accent); margin-bottom: 0.5rem; font-size: 1.8rem; }
-        p { color: #94a3b8; font-size: 0.85rem; margin-bottom: 1.5rem; }
-        input[type="file"] { margin: 1.5rem 0; color: #94a3b8; width: 100%; font-size: 0.9rem; }
-        #prog-container { width: 100%; background: #334155; height: 12px; border-radius: 6px; display: none; margin: 1.5rem 0; overflow: hidden; }
-        #prog-bar { background: var(--accent); width: 0%; height: 100%; transition: width 0.3s ease; }
-        button { background: var(--accent); color: var(--bg); border: none; padding: 1rem; border-radius: 0.75rem; font-weight: bold; width: 100%; cursor: pointer; font-size: 1rem; }
-        button:disabled { background: #475569; cursor: not-allowed; }
-        #status { margin-top: 1.2rem; font-size: 0.85rem; color: var(--accent); font-weight: 500; word-break: break-all; }
-    </style>
-</head>
-<body>
-
-<div class="box">
-    <h2>AirShare</h2>
-    <p>Upload to Google Drive (Max 10GB)</p>
-    <input type="file" id="fileInput">
-    <button id="uploadBtn" onclick="upload()">Start Upload</button>
-    <div id="prog-container"><div id="prog-bar"></div></div>
-    <div id="status">Ready</div>
-</div>
-
 <script>
-// --- BOT_ZONE_START ---
-const ACCESS_TOKEN = "ya29.c.c0AZ4bNpYRuW3AxqJQwFFhy_o8pCAXN36IIiYYMPaBunxiZ4vsSrNdOy1KfhZiepzJdi2AiAskzuHu1JJYBOgEufOz8Sjwg1hoqwIITwQXObIQdCWneZddmlhiF2iU6NlqZ973b9vhQvrtw0f-XgenLkczhDFsHE9QWhuCW7QXKHOvJtoejex4gjibjN34ghpweMGJHpU0v1iLOU-1tV1spjaEwKmcB3fsDXUrlQPTMm6Oye8rhFjpp0Lt6HMC3XsuEef9Jadli6BzH592zjHhOIHbIo8bYpb0sNZiD8IAy5DJwsmNshiVx5eB1dkB2D7X_MAdrzZ2L4NVX1h-Ja-8UnYnlqIWoOx-_Ja4GQFcj5Y86LxSjtw8MX0E384CxYRFbXZoijsul_jVQmdsi7MOzms-aSnaQRMcrvFU8XahS9Y67U3v-8rh171OVmMFZktOcjlqxuQOyJvc2iFBcfokJF17YhdeYOpBxJdBwyb7pqXjpWxYtb4tecx36c_8-1QjRIrVbO7Xt5JeQi97Ss3F6_86I_9ZItdyy2_y-1W1x1fma2O6pWb5svlJals2FztvxYvxkWJbBX7MQekZtZvSV7y2V3ffs5n_lqr-Ri8WSmO3q8kJ4yitZ_Irq3jIBngscYFRWwe6RZI6x_rIdYjeZoh4zxbvb93ub2e2isS1m3ryycycepFu7tcudQrq2_0265O7x5ebJMmujnozBh1jyonzzwQjkFO0S7ggn3k2eitFzf5XbbY_SZowxXfpcy_oa52m66o8tRn9nSJ77XxQIZuFxOqsVRsgj07uxzcQssqvSIWbhQf3XhlgBsUjd7Wz79I-e6xQW-emF4wZxezgUIq_b2W3p1vv2pqbflMZaiX5qoIRbk2dnm7myqo_whthfI1vIFlxY_lv6o3tXyYpWJfdVu-5zv-aQJW818xQ6R09lygJzjX3p24pRuOf5QrFVFRv1upcsVgrf5_bl6wtvqshq3egqxFhFgXk5djcf8v1349-BX7RM-c"; 
-// --- BOT_ZONE_END ---
-const FOLDER_ID = "1X25xBP2FPyFgVaPXYJ8S07yXgzGffUDO";
+const WORKER_URL = 'https://airshare-upload.yourname.workers.dev'; // your worker URL
 
 async function upload() {
-    const fileInput = document.getElementById('fileInput');
-    const file = fileInput.files[0];
-    if (!file) return alert("Select a file first!");
+  const fileInput = document.getElementById('fileInput');
+  const file = fileInput.files[0];
+  if (!file) return alert("Select a file first!");
 
-    const btn = document.getElementById('uploadBtn');
-    const status = document.getElementById('status');
-    const bar = document.getElementById('prog-bar');
-    const container = document.getElementById('prog-container');
+  const btn = document.getElementById('uploadBtn');
+  const status = document.getElementById('status');
+  const bar = document.getElementById('prog-bar');
+  const container = document.getElementById('prog-container');
 
-    btn.disabled = true;
-    container.style.display = 'block';
-    status.innerText = "Connecting to Google...";
+  btn.disabled = true;
+  container.style.display = 'block';
+  bar.style.width = '0%';
+  status.innerText = "Starting upload...";
 
-    try {
-        const metadata = { name: file.name, parents: [FOLDER_ID] };
+  try {
+    // For large files, show progress via XHR to the worker
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', WORKER_URL);
+      xhr.setRequestHeader('X-File-Name', file.name);
+      xhr.setRequestHeader('X-File-Type', file.type || 'application/octet-stream');
+      xhr.setRequestHeader('X-File-Size', file.size);
 
-        // Start Resumable Upload
-        const initResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${ACCESS_TOKEN}`,
-                'Content-Type': 'application/json; charset=UTF-8'
-            },
-            body: JSON.stringify(metadata)
-        });
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          bar.style.width = pct + '%';
+          status.innerText = `Uploading: ${pct}% (${(e.loaded/1024/1024).toFixed(1)} MB / ${(e.total/1024/1024).toFixed(1)} MB)`;
+        }
+      };
 
-        if (!initResponse.ok) throw new Error("Auth Failed. Run GitHub Action.");
+      xhr.onload = () => {
+        if (xhr.status === 200 || xhr.status === 201) {
+          const res = JSON.parse(xhr.responseText);
+          status.innerText = `✅ Done! "${res.name}" saved to Drive.`;
+          fileInput.value = '';
+          bar.style.width = '100%';
+          resolve();
+        } else {
+          reject(new Error(`Upload failed: ${xhr.status} — ${xhr.responseText}`));
+        }
+      };
 
-        const uploadUrl = initResponse.headers.get('Location');
-        const xhr = new XMLHttpRequest();
-        xhr.open('PUT', uploadUrl);
-        
-        // Critical: tells Google where the byte stream ends to prevent 403 stream errors
-        xhr.setRequestHeader('Content-Range', `bytes 0-${file.size - 1}/${file.size}`);
-
-        xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-                const percent = Math.round((e.loaded / e.total) * 100);
-                bar.style.width = percent + '%';
-                status.innerText = `Uploading: ${percent}% (${(e.loaded/1024/1024).toFixed(1)}MB)`;
-            }
-        };
-
-        xhr.onload = () => {
-            if (xhr.status === 200 || xhr.status === 201) {
-                status.innerText = "✅ Done! File saved.";
-                fileInput.value = ""; 
-            } else {
-                status.innerText = `❌ Error ${xhr.status}: Google rejected the request.`;
-            }
-            btn.disabled = false;
-        };
-
-        xhr.send(file);
-    } catch (err) {
-        status.innerText = "❌ " + err.message;
-        btn.disabled = false;
-    }
+      xhr.onerror = () => reject(new Error('Network error'));
+      xhr.send(file);
+    });
+  } catch (err) {
+    status.innerText = '❌ ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
 }
 </script>
-</body>
-</html>
