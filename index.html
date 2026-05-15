@@ -1,57 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AirShare | Cloud Drop</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0f172a;
+            color: #f8fafc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .box {
+            background: #1e293b;
+            padding: 2.5rem;
+            border-radius: 1.5rem;
+            width: 100%;
+            max-width: 420px;
+            text-align: center;
+            border: 1px solid #334155;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+        }
+        .icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+        h2 { color: #38bdf8; font-size: 1.8rem; margin-bottom: 0.3rem; }
+        .subtitle { color: #64748b; font-size: 0.85rem; margin-bottom: 2rem; }
+
+        .drop-zone {
+            border: 2px dashed #334155;
+            border-radius: 1rem;
+            padding: 2rem 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: #38bdf8;
+            background: rgba(56,189,248,0.05);
+        }
+        .drop-zone input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+        .drop-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+        .drop-text { color: #94a3b8; font-size: 0.9rem; }
+        .drop-text span { color: #38bdf8; }
+        #file-name { margin-top: 0.5rem; font-size: 0.8rem; color: #38bdf8; min-height: 1.2rem; }
+
+        #prog-container {
+            width: 100%;
+            background: #334155;
+            height: 10px;
+            border-radius: 5px;
+            display: none;
+            margin-bottom: 1.2rem;
+            overflow: hidden;
+        }
+        #prog-bar {
+            background: linear-gradient(90deg, #38bdf8, #818cf8);
+            width: 0%;
+            height: 100%;
+            transition: width 0.3s ease;
+            border-radius: 5px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            color: #0f172a;
+            border: none;
+            padding: 0.9rem;
+            border-radius: 0.75rem;
+            font-weight: 700;
+            width: 100%;
+            cursor: pointer;
+            font-size: 1rem;
+            letter-spacing: 0.02em;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        button:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+        button:disabled { background: #334155; color: #64748b; cursor: not-allowed; transform: none; }
+
+        #status {
+            margin-top: 1.2rem;
+            font-size: 0.85rem;
+            color: #94a3b8;
+            min-height: 1.5rem;
+            word-break: break-all;
+        }
+        #status.success { color: #4ade80; }
+        #status.error { color: #f87171; }
+        #status.loading { color: #38bdf8; }
+    </style>
+</head>
+<body>
+
+<div class="box">
+    <div class="icon">☁️</div>
+    <h2>AirShare</h2>
+    <p class="subtitle">Drop any file — it lands in the cloud instantly</p>
+
+    <div class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput" onchange="onFileSelected(this)">
+        <div class="drop-icon">📂</div>
+        <div class="drop-text">Drag & drop or <span>browse files</span></div>
+        <div id="file-name"></div>
+    </div>
+
+    <div id="prog-container"><div id="prog-bar"></div></div>
+
+    <button id="uploadBtn" onclick="upload()" disabled>Select a file first</button>
+    <div id="status" id="status"></div>
+</div>
+
 <script>
-const WORKER_URL = 'https://gcp-auth-bridge.mail-ashikulislam.workers.dev/'; // your worker URL
+    const WORKER_URL = 'https://gcp-auth-bridge.mail-ashikulislam.workers.dev/';
 
-async function upload() {
-  const fileInput = document.getElementById('fileInput');
-  const file = fileInput.files[0];
-  if (!file) return alert("Select a file first!");
-
-  const btn = document.getElementById('uploadBtn');
-  const status = document.getElementById('status');
-  const bar = document.getElementById('prog-bar');
-  const container = document.getElementById('prog-container');
-
-  btn.disabled = true;
-  container.style.display = 'block';
-  bar.style.width = '0%';
-  status.innerText = "Starting upload...";
-
-  try {
-    // For large files, show progress via XHR to the worker
-    await new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', WORKER_URL);
-      xhr.setRequestHeader('X-File-Name', file.name);
-      xhr.setRequestHeader('X-File-Type', file.type || 'application/octet-stream');
-      xhr.setRequestHeader('X-File-Size', file.size);
-
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          const pct = Math.round((e.loaded / e.total) * 100);
-          bar.style.width = pct + '%';
-          status.innerText = `Uploading: ${pct}% (${(e.loaded/1024/1024).toFixed(1)} MB / ${(e.total/1024/1024).toFixed(1)} MB)`;
+    // Drag and drop styling
+    const dropZone = document.getElementById('dropZone');
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (file) {
+            document.getElementById('fileInput').files = e.dataTransfer.files;
+            onFileSelected(null, file);
         }
-      };
-
-      xhr.onload = () => {
-        if (xhr.status === 200 || xhr.status === 201) {
-          const res = JSON.parse(xhr.responseText);
-          status.innerText = `✅ Done! "${res.name}" saved to Drive.`;
-          fileInput.value = '';
-          bar.style.width = '100%';
-          resolve();
-        } else {
-          reject(new Error(`Upload failed: ${xhr.status} — ${xhr.responseText}`));
-        }
-      };
-
-      xhr.onerror = () => reject(new Error('Network error'));
-      xhr.send(file);
     });
-  } catch (err) {
-    status.innerText = '❌ ' + err.message;
-  } finally {
-    btn.disabled = false;
-  }
-}
+
+    function onFileSelected(input, droppedFile) {
+        const file = droppedFile || input.files[0];
+        if (!file) return;
+        document.getElementById('file-name').innerText = `${file.name} (${(file.size/1024/1024).toFixed(2)} MB)`;
+        const btn = document.getElementById('uploadBtn');
+        btn.disabled = false;
+        btn.innerText = 'Upload to Drive ☁️';
+        setStatus('', '');
+    }
+
+    function setStatus(msg, type) {
+        const el = document.getElementById('status');
+        el.innerText = msg;
+        el.className = type;
+    }
+
+    async function upload() {
+        const fileInput = document.getElementById('fileInput');
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        const btn = document.getElementById('uploadBtn');
+        const bar = document.getElementById('prog-bar');
+        const container = document.getElementById('prog-container');
+
+        btn.disabled = true;
+        btn.innerText = 'Uploading...';
+        container.style.display = 'block';
+        bar.style.width = '0%';
+        setStatus('Connecting to server...', 'loading');
+
+        try {
+            await new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', WORKER_URL);
+                xhr.setRequestHeader('X-File-Name', encodeURIComponent(file.name));
+                xhr.setRequestHeader('X-File-Type', file.type || 'application/octet-stream');
+                xhr.setRequestHeader('X-File-Size', file.size);
+
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) {
+                        const pct = Math.round((e.loaded / e.total) * 100);
+                        bar.style.width = pct + '%';
+                        setStatus(`Uploading: ${pct}% — ${(e.loaded/1024/1024).toFixed(1)} MB of ${(e.total/1024/1024).toFixed(1)} MB`, 'loading');
+                    }
+                };
+
+                xhr.onload = () => {
+                    if (xhr.status === 200 || xhr.status === 201) {
+                        try {
+                            const res = JSON.parse(xhr.responseText);
+                            bar.style.width = '100%';
+                            setStatus(`✅ "${res.name}" uploaded successfully!`, 'success');
+                            fileInput.value = '';
+                            document.getElementById('file-name').innerText = '';
+                            btn.innerText = 'Upload Another ☁️';
+                            btn.disabled = false;
+                        } catch {
+                            setStatus('✅ Upload complete!', 'success');
+                            btn.innerText = 'Upload Another ☁️';
+                            btn.disabled = false;
+                        }
+                        resolve();
+                    } else {
+                        reject(new Error(`Server error ${xhr.status}: ${xhr.responseText}`));
+                    }
+                };
+
+                xhr.onerror = () => reject(new Error('Network error — check your connection'));
+                xhr.send(file);
+            });
+        } catch (err) {
+            setStatus('❌ ' + err.message, 'error');
+            btn.disabled = false;
+            btn.innerText = 'Retry Upload';
+        }
+    }
 </script>
+</body>
+</html>
