@@ -62,15 +62,21 @@
             height: 10px;
             border-radius: 5px;
             display: none;
-            margin-bottom: 1.2rem;
+            margin-bottom: 0.8rem;
             overflow: hidden;
         }
         #prog-bar {
             background: linear-gradient(90deg, #38bdf8, #818cf8);
             width: 0%;
             height: 100%;
-            transition: width 0.3s ease;
+            transition: width 0.2s ease;
             border-radius: 5px;
+        }
+        #speed-info {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-bottom: 1rem;
+            min-height: 1.2rem;
         }
 
         button {
@@ -90,11 +96,12 @@
         button:disabled { background: #334155; color: #64748b; cursor: not-allowed; transform: none; }
 
         #status {
-            margin-top: 1.2rem;
+            margin-top: 1rem;
             font-size: 0.85rem;
             color: #94a3b8;
             min-height: 1.5rem;
             word-break: break-all;
+            line-height: 1.5;
         }
         #status.success { color: #4ade80; }
         #status.error { color: #f87171; }
@@ -102,7 +109,6 @@
     </style>
 </head>
 <body>
-
 <div class="box">
     <div class="icon">☁️</div>
     <h2>AirShare</h2>
@@ -116,15 +122,17 @@
     </div>
 
     <div id="prog-container"><div id="prog-bar"></div></div>
+    <div id="speed-info"></div>
 
     <button id="uploadBtn" onclick="upload()" disabled>Select a file first</button>
-    <div id="status" id="status"></div>
+    <div id="status"></div>
 </div>
 
 <script>
     const WORKER_URL = 'https://gcp-auth-bridge.mail-ashikulislam.workers.dev/';
+    const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+    const MAX_RETRIES = 5;
 
-    // Drag and drop styling
     const dropZone = document.getElementById('dropZone');
     dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
@@ -141,17 +149,70 @@
     function onFileSelected(input, droppedFile) {
         const file = droppedFile || input.files[0];
         if (!file) return;
-        document.getElementById('file-name').innerText = `${file.name} (${(file.size/1024/1024).toFixed(2)} MB)`;
+        document.getElementById('file-name').innerText = `${file.name} (${formatBytes(file.size)})`;
         const btn = document.getElementById('uploadBtn');
         btn.disabled = false;
         btn.innerText = 'Upload to Drive ☁️';
         setStatus('', '');
+        document.getElementById('speed-info').innerText = '';
     }
 
     function setStatus(msg, type) {
         const el = document.getElementById('status');
         el.innerText = msg;
-        el.className = type;
+        el.className = type || '';
+    }
+
+    function formatBytes(bytes) {
+        if (bytes >= 1024 ** 3) return (bytes / 1024 ** 3).toFixed(2) + ' GB';
+        if (bytes >= 1024 ** 2) return (bytes / 1024 ** 2).toFixed(1) + ' MB';
+        return (bytes / 1024).toFixed(0) + ' KB';
+    }
+
+    function formatSpeed(bps) {
+        if (bps >= 1024 ** 2) return (bps / 1024 ** 2).toFixed(1) + ' MB/s';
+        return (bps / 1024).toFixed(0) + ' KB/s';
+    }
+
+    async function uploadChunk(uploadUrl, chunk, start, totalSize, retries = 0) {
+        const end = start + chunk.size - 1;
+        const res = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers: {
+                'Content-Range': `bytes ${start}-${end}/${totalSize}`,
+                'Content-Type': 'application/octet-stream',
+            },
+            body: chunk
+        });
+
+        // 308 = chunk received, continue. 200/201 = complete
+        if (res.status === 308 || res.status === 200 || res.status === 201) {
+            return res;
+        }
+
+        // Retry on server errors
+        if (res.status >= 500 && retries < MAX_RETRIES) {
+            const delay = Math.pow(2, retries) * 1000;
+            setStatus(`⚠️ Chunk failed, retrying in ${delay/1000}s... (attempt ${retries + 1}/${MAX_RETRIES})`, 'loading');
+            await new Promise(r => setTimeout(r, delay));
+            return uploadChunk(uploadUrl, chunk, start, totalSize, retries + 1);
+        }
+
+        throw new Error(`Chunk upload failed with status ${res.status}`);
+    }
+
+    async function resumeUpload(uploadUrl, totalSize) {
+        // Ask Google where to resume from
+        const res = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers: { 'Content-Range': `bytes */${totalSize}` }
+        });
+        if (res.status === 308) {
+            const range = res.headers.get('Range');
+            return range ? parseInt(range.split('-')[1]) + 1 : 0;
+        }
+        if (res.status === 200 || res.status === 201) return totalSize; // already done
+        throw new Error('Could not resume upload');
     }
 
     async function upload() {
@@ -162,57 +223,91 @@
         const btn = document.getElementById('uploadBtn');
         const bar = document.getElementById('prog-bar');
         const container = document.getElementById('prog-container');
+        const speedInfo = document.getElementById('speed-info');
 
         btn.disabled = true;
         btn.innerText = 'Uploading...';
         container.style.display = 'block';
         bar.style.width = '0%';
-        setStatus('Connecting to server...', 'loading');
+        setStatus('Getting upload URL from server...', 'loading');
 
         try {
-            await new Promise((resolve, reject) => {
-                const xhr = new XMLHttpRequest();
-                xhr.open('POST', WORKER_URL);
-                xhr.setRequestHeader('X-File-Name', encodeURIComponent(file.name));
-                xhr.setRequestHeader('X-File-Type', file.type || 'application/octet-stream');
-                xhr.setRequestHeader('X-File-Size', file.size);
-
-                xhr.upload.onprogress = (e) => {
-                    if (e.lengthComputable) {
-                        const pct = Math.round((e.loaded / e.total) * 100);
-                        bar.style.width = pct + '%';
-                        setStatus(`Uploading: ${pct}% — ${(e.loaded/1024/1024).toFixed(1)} MB of ${(e.total/1024/1024).toFixed(1)} MB`, 'loading');
-                    }
-                };
-
-                xhr.onload = () => {
-                    if (xhr.status === 200 || xhr.status === 201) {
-                        try {
-                            const res = JSON.parse(xhr.responseText);
-                            bar.style.width = '100%';
-                            setStatus(`✅ "${res.name}" uploaded successfully!`, 'success');
-                            fileInput.value = '';
-                            document.getElementById('file-name').innerText = '';
-                            btn.innerText = 'Upload Another ☁️';
-                            btn.disabled = false;
-                        } catch {
-                            setStatus('✅ Upload complete!', 'success');
-                            btn.innerText = 'Upload Another ☁️';
-                            btn.disabled = false;
-                        }
-                        resolve();
-                    } else {
-                        reject(new Error(`Server error ${xhr.status}: ${xhr.responseText}`));
-                    }
-                };
-
-                xhr.onerror = () => reject(new Error('Network error — check your connection'));
-                xhr.send(file);
+            // Step 1: Get upload URL from Cloudflare Worker
+            const workerRes = await fetch(WORKER_URL, {
+                method: 'POST',
+                headers: {
+                    'X-File-Name': encodeURIComponent(file.name),
+                    'X-File-Type': file.type || 'application/octet-stream',
+                    'X-File-Size': file.size,
+                }
             });
+
+            if (!workerRes.ok) {
+                const err = await workerRes.json();
+                throw new Error('Worker error: ' + (err.error || workerRes.status));
+            }
+
+            const { uploadUrl } = await workerRes.json();
+
+            // Step 2: Upload directly to Google Drive in chunks
+            let offset = 0;
+            let startTime = Date.now();
+            let bytesAtLastCheck = 0;
+            let lastSpeedUpdate = Date.now();
+
+            while (offset < file.size) {
+                const chunk = file.slice(offset, offset + CHUNK_SIZE);
+                let res;
+
+                try {
+                    res = await uploadChunk(uploadUrl, chunk, offset, file.size);
+                } catch (chunkErr) {
+                    // Try to resume from where Google last received
+                    setStatus('⚠️ Connection lost, attempting to resume...', 'loading');
+                    await new Promise(r => setTimeout(r, 2000));
+                    offset = await resumeUpload(uploadUrl, file.size);
+                    if (offset >= file.size) break; // upload actually finished
+                    continue;
+                }
+
+                offset += chunk.size;
+
+                // Update progress
+                const pct = Math.round((offset / file.size) * 100);
+                bar.style.width = pct + '%';
+
+                // Calculate speed every second
+                const now = Date.now();
+                if (now - lastSpeedUpdate > 1000) {
+                    const elapsed = (now - lastSpeedUpdate) / 1000;
+                    const bytesSince = offset - bytesAtLastCheck;
+                    const speed = bytesSince / elapsed;
+                    const remaining = (file.size - offset) / speed;
+                    const mins = Math.floor(remaining / 60);
+                    const secs = Math.floor(remaining % 60);
+                    speedInfo.innerText = `${formatSpeed(speed)} — ${mins}m ${secs}s remaining`;
+                    bytesAtLastCheck = offset;
+                    lastSpeedUpdate = now;
+                }
+
+                setStatus(`Uploading: ${pct}% — ${formatBytes(offset)} of ${formatBytes(file.size)}`, 'loading');
+
+                if (res.status === 200 || res.status === 201) break;
+            }
+
+            bar.style.width = '100%';
+            speedInfo.innerText = '';
+            setStatus(`✅ "${file.name}" uploaded successfully!`, 'success');
+            fileInput.value = '';
+            document.getElementById('file-name').innerText = '';
+            btn.innerText = 'Upload Another ☁️';
+            btn.disabled = false;
+
         } catch (err) {
             setStatus('❌ ' + err.message, 'error');
             btn.disabled = false;
             btn.innerText = 'Retry Upload';
+            speedInfo.innerText = '';
         }
     }
 </script>
