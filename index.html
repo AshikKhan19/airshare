@@ -1,136 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AirShare | Cloud Drop</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #0f172a;
-            color: #f8fafc;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .box {
-            background: #1e293b;
-            padding: 2.5rem;
-            border-radius: 1.5rem;
-            width: 100%;
-            max-width: 420px;
-            text-align: center;
-            border: 1px solid #334155;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
-        }
-        .icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
-        h2 { color: #38bdf8; font-size: 1.8rem; margin-bottom: 0.3rem; }
-        .subtitle { color: #64748b; font-size: 0.85rem; margin-bottom: 2rem; }
-
-        .drop-zone {
-            border: 2px dashed #334155;
-            border-radius: 1rem;
-            padding: 2rem 1rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            margin-bottom: 1.5rem;
-            position: relative;
-        }
-        .drop-zone:hover, .drop-zone.dragover {
-            border-color: #38bdf8;
-            background: rgba(56,189,248,0.05);
-        }
-        .drop-zone input[type="file"] {
-            position: absolute;
-            inset: 0;
-            opacity: 0;
-            cursor: pointer;
-            width: 100%;
-            height: 100%;
-        }
-        .drop-icon { font-size: 2rem; margin-bottom: 0.5rem; }
-        .drop-text { color: #94a3b8; font-size: 0.9rem; }
-        .drop-text span { color: #38bdf8; }
-        #file-name { margin-top: 0.5rem; font-size: 0.8rem; color: #38bdf8; min-height: 1.2rem; }
-
-        #prog-container {
-            width: 100%;
-            background: #334155;
-            height: 10px;
-            border-radius: 5px;
-            display: none;
-            margin-bottom: 0.8rem;
-            overflow: hidden;
-        }
-        #prog-bar {
-            background: linear-gradient(90deg, #38bdf8, #818cf8);
-            width: 0%;
-            height: 100%;
-            transition: width 0.2s ease;
-            border-radius: 5px;
-        }
-        #speed-info {
-            font-size: 0.75rem;
-            color: #64748b;
-            margin-bottom: 1rem;
-            min-height: 1.2rem;
-        }
-
-        button {
-            background: linear-gradient(135deg, #38bdf8, #818cf8);
-            color: #0f172a;
-            border: none;
-            padding: 0.9rem;
-            border-radius: 0.75rem;
-            font-weight: 700;
-            width: 100%;
-            cursor: pointer;
-            font-size: 1rem;
-            letter-spacing: 0.02em;
-            transition: opacity 0.2s, transform 0.1s;
-        }
-        button:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
-        button:disabled { background: #334155; color: #64748b; cursor: not-allowed; transform: none; }
-
-        #status {
-            margin-top: 1rem;
-            font-size: 0.85rem;
-            color: #94a3b8;
-            min-height: 1.5rem;
-            word-break: break-all;
-            line-height: 1.5;
-        }
-        #status.success { color: #4ade80; }
-        #status.error { color: #f87171; }
-        #status.loading { color: #38bdf8; }
-    </style>
-</head>
-<body>
-<div class="box">
-    <div class="icon">☁️</div>
-    <h2>AirShare</h2>
-    <p class="subtitle">Drop any file — it lands in the cloud instantly</p>
-
-    <div class="drop-zone" id="dropZone">
-        <input type="file" id="fileInput" onchange="onFileSelected(this)">
-        <div class="drop-icon">📂</div>
-        <div class="drop-text">Drag & drop or <span>browse files</span></div>
-        <div id="file-name"></div>
-    </div>
-
-    <div id="prog-container"><div id="prog-bar"></div></div>
-    <div id="speed-info"></div>
-
-    <button id="uploadBtn" onclick="upload()" disabled>Select a file first</button>
-    <div id="status"></div>
-</div>
+<input type="file" id="fileInput" onchange="onFileSelected(this)" multiple>
 
 <script>
     const WORKER_URL = 'https://gcp-auth-bridge.mail-ashikulislam.workers.dev/';
-    const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+    const CHUNK_SIZE = 5 * 1024 * 1024; 
     const MAX_RETRIES = 5;
 
     const dropZone = document.getElementById('dropZone');
@@ -139,22 +11,26 @@
     dropZone.addEventListener('drop', e => {
         e.preventDefault();
         dropZone.classList.remove('dragover');
-        const file = e.dataTransfer.files[0];
-        if (file) {
-            document.getElementById('fileInput').files = e.dataTransfer.files;
-            onFileSelected(null, file);
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            document.getElementById('fileInput').files = files;
+            onFileSelected(null);
         }
     });
 
-    function onFileSelected(input, droppedFile) {
-        const file = droppedFile || input.files[0];
-        if (!file) return;
-        document.getElementById('file-name').innerText = `${file.name} (${formatBytes(file.size)})`;
+    function onFileSelected(input) {
+        const files = input ? input.files : document.getElementById('fileInput').files;
+        if (files.length === 0) return;
+        
+        const count = files.length;
+        document.getElementById('file-name').innerText = count === 1 
+            ? `${files[0].name} (${formatBytes(files[0].size)})`
+            : `${count} files selected`;
+            
         const btn = document.getElementById('uploadBtn');
         btn.disabled = false;
-        btn.innerText = 'Upload to Drive ☁️';
+        btn.innerText = count === 1 ? 'Upload to Drive ☁️' : `Upload ${count} Files ☁️`;
         setStatus('', '');
-        document.getElementById('speed-info').innerText = '';
     }
 
     function setStatus(msg, type) {
@@ -176,33 +52,36 @@
 
     async function uploadChunk(uploadUrl, chunk, start, totalSize, retries = 0) {
         const end = start + chunk.size - 1;
-        const res = await fetch(uploadUrl, {
-            method: 'PUT',
-            headers: {
-                'Content-Range': `bytes ${start}-${end}/${totalSize}`,
-                'Content-Type': 'application/octet-stream',
-            },
-            body: chunk
-        });
+        try {
+            const res = await fetch(uploadUrl, {
+                method: 'PUT',
+                headers: {
+                    'Content-Range': `bytes ${start}-${end}/${totalSize}`,
+                    'Content-Type': 'application/octet-stream',
+                },
+                body: chunk
+            });
 
-        // 308 = chunk received, continue. 200/201 = complete
-        if (res.status === 308 || res.status === 200 || res.status === 201) {
-            return res;
+            // FIX 1: Explicitly handle completion and continue status
+            if (res.status === 308 || res.status === 200 || res.status === 201) {
+                return res;
+            }
+
+            if (res.status >= 500 && retries < MAX_RETRIES) {
+                throw new Error("Retryable server error");
+            }
+            throw new Error(`Upload failed with status ${res.status}`);
+        } catch (err) {
+            if (retries < MAX_RETRIES) {
+                const delay = Math.pow(2, retries) * 1000;
+                await new Promise(r => setTimeout(r, delay));
+                return uploadChunk(uploadUrl, chunk, start, totalSize, retries + 1);
+            }
+            throw err;
         }
-
-        // Retry on server errors
-        if (res.status >= 500 && retries < MAX_RETRIES) {
-            const delay = Math.pow(2, retries) * 1000;
-            setStatus(`⚠️ Chunk failed, retrying in ${delay/1000}s... (attempt ${retries + 1}/${MAX_RETRIES})`, 'loading');
-            await new Promise(r => setTimeout(r, delay));
-            return uploadChunk(uploadUrl, chunk, start, totalSize, retries + 1);
-        }
-
-        throw new Error(`Chunk upload failed with status ${res.status}`);
     }
 
     async function resumeUpload(uploadUrl, totalSize) {
-        // Ask Google where to resume from
         const res = await fetch(uploadUrl, {
             method: 'PUT',
             headers: { 'Content-Range': `bytes */${totalSize}` }
@@ -211,14 +90,15 @@
             const range = res.headers.get('Range');
             return range ? parseInt(range.split('-')[1]) + 1 : 0;
         }
-        if (res.status === 200 || res.status === 201) return totalSize; // already done
+        if (res.status === 200 || res.status === 201) return totalSize;
         throw new Error('Could not resume upload');
     }
 
+    // FIX 2: Multi-file sequential uploader
     async function upload() {
         const fileInput = document.getElementById('fileInput');
-        const file = fileInput.files[0];
-        if (!file) return;
+        const files = Array.from(fileInput.files);
+        if (files.length === 0) return;
 
         const btn = document.getElementById('uploadBtn');
         const bar = document.getElementById('prog-bar');
@@ -226,90 +106,70 @@
         const speedInfo = document.getElementById('speed-info');
 
         btn.disabled = true;
-        btn.innerText = 'Uploading...';
         container.style.display = 'block';
-        bar.style.width = '0%';
-        setStatus('Getting upload URL from server...', 'loading');
 
-        try {
-            // Step 1: Get upload URL from Cloudflare Worker
-            const workerRes = await fetch(WORKER_URL, {
-                method: 'POST',
-                headers: {
-                    'X-File-Name': encodeURIComponent(file.name),
-                    'X-File-Type': file.type || 'application/octet-stream',
-                    'X-File-Size': file.size,
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const fileLabel = files.length > 1 ? `[${i + 1}/${files.length}] ` : '';
+            
+            bar.style.width = '0%';
+            setStatus(`${fileLabel}Initiating "${file.name}"...`, 'loading');
+
+            try {
+                const workerRes = await fetch(WORKER_URL, {
+                    method: 'POST',
+                    headers: {
+                        'X-File-Name': encodeURIComponent(file.name),
+                        'X-File-Type': file.type || 'application/octet-stream',
+                        'X-File-Size': file.size,
+                    }
+                });
+
+                if (!workerRes.ok) throw new Error('Worker handshake failed');
+                const { uploadUrl } = await workerRes.json();
+
+                let offset = 0;
+                let lastSpeedUpdate = Date.now();
+                let bytesAtLastCheck = 0;
+
+                while (offset < file.size) {
+                    const chunk = file.slice(offset, offset + CHUNK_SIZE);
+                    const res = await uploadChunk(uploadUrl, chunk, offset, file.size);
+                    
+                    offset += chunk.size;
+                    const pct = Math.round((offset / file.size) * 100);
+                    bar.style.width = pct + '%';
+
+                    // Speed calculation
+                    const now = Date.now();
+                    if (now - lastSpeedUpdate > 1000) {
+                        const elapsed = (now - lastSpeedUpdate) / 1000;
+                        const speed = (offset - bytesAtLastCheck) / elapsed;
+                        speedInfo.innerText = `${formatSpeed(speed)} — ${fileLabel}${file.name}`;
+                        bytesAtLastCheck = offset;
+                        lastSpeedUpdate = now;
+                    }
+
+                    setStatus(`${fileLabel}Uploading: ${pct}%`, 'loading');
+
+                    // If Google returns 200/201, it means the file is finished
+                    if (res.status === 200 || res.status === 201) break;
                 }
-            });
-
-            if (!workerRes.ok) {
-                const err = await workerRes.json();
-                throw new Error('Worker error: ' + (err.error || workerRes.status));
+            } catch (err) {
+                setStatus(`❌ Error on "${file.name}": ${err.message}`, 'error');
+                btn.disabled = false;
+                btn.innerText = 'Retry Failed Uploads';
+                return; // Stop the loop on error
             }
-
-            const { uploadUrl } = await workerRes.json();
-
-            // Step 2: Upload directly to Google Drive in chunks
-            let offset = 0;
-            let startTime = Date.now();
-            let bytesAtLastCheck = 0;
-            let lastSpeedUpdate = Date.now();
-
-            while (offset < file.size) {
-                const chunk = file.slice(offset, offset + CHUNK_SIZE);
-                let res;
-
-                try {
-                    res = await uploadChunk(uploadUrl, chunk, offset, file.size);
-                } catch (chunkErr) {
-                    // Try to resume from where Google last received
-                    setStatus('⚠️ Connection lost, attempting to resume...', 'loading');
-                    await new Promise(r => setTimeout(r, 2000));
-                    offset = await resumeUpload(uploadUrl, file.size);
-                    if (offset >= file.size) break; // upload actually finished
-                    continue;
-                }
-
-                offset += chunk.size;
-
-                // Update progress
-                const pct = Math.round((offset / file.size) * 100);
-                bar.style.width = pct + '%';
-
-                // Calculate speed every second
-                const now = Date.now();
-                if (now - lastSpeedUpdate > 1000) {
-                    const elapsed = (now - lastSpeedUpdate) / 1000;
-                    const bytesSince = offset - bytesAtLastCheck;
-                    const speed = bytesSince / elapsed;
-                    const remaining = (file.size - offset) / speed;
-                    const mins = Math.floor(remaining / 60);
-                    const secs = Math.floor(remaining % 60);
-                    speedInfo.innerText = `${formatSpeed(speed)} — ${mins}m ${secs}s remaining`;
-                    bytesAtLastCheck = offset;
-                    lastSpeedUpdate = now;
-                }
-
-                setStatus(`Uploading: ${pct}% — ${formatBytes(offset)} of ${formatBytes(file.size)}`, 'loading');
-
-                if (res.status === 200 || res.status === 201) break;
-            }
-
-            bar.style.width = '100%';
-            speedInfo.innerText = '';
-            setStatus(`✅ "${file.name}" uploaded successfully!`, 'success');
-            fileInput.value = '';
-            document.getElementById('file-name').innerText = '';
-            btn.innerText = 'Upload Another ☁️';
-            btn.disabled = false;
-
-        } catch (err) {
-            setStatus('❌ ' + err.message, 'error');
-            btn.disabled = false;
-            btn.innerText = 'Retry Upload';
-            speedInfo.innerText = '';
         }
+
+        // All files finished
+        bar.style.width = '100%';
+        speedInfo.innerText = '';
+        setStatus(`✅ All ${files.length} files uploaded successfully!`, 'success');
+        fileInput.value = '';
+        document.getElementById('file-name').innerText = '';
+        btn.innerText = 'Upload More ☁️';
+        btn.disabled = false;
     }
 </script>
-</body>
-</html>
